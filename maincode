@@ -1,0 +1,153 @@
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+
+LiquidCrystal_I2C lcd(0x27, 16, 2);   // Change to 0x3F if needed
+
+
+const int buttonPins[4] = {7, 8, 9, 10};
+const int ledPins[4]    = {5, 6, 13, 2};
+const int buzzPin = A2;
+
+
+enum State { IDLE, MOVE_UP, MOVE_DOWN, DOOR_OPENING, DOOR_CLOSING };
+State currentState = IDLE;
+
+int currentFloor = 1;
+int targetFloor  = 1;
+
+
+unsigned long lastMoveTime = 0;
+unsigned long lastDoorTime = 0;
+unsigned long lastButtonTime[4] = {0,0,0,0};
+
+int doorPos = 10;
+const int moveInterval = 1800;
+const int doorInterval = 250;
+const int debounceDelay = 150;
+
+void setup() {
+  Serial.begin(9600);
+
+  lcd.init();
+  lcd.backlight();
+
+  pinMode(buzzPin, OUTPUT);
+
+  for(int i=0;i<4;i++){
+    pinMode(buttonPins[i], INPUT_PULLUP);
+    pinMode(ledPins[i], OUTPUT);
+  }
+
+  lcd.setCursor(0,0);
+  lcd.print("System Ready");
+  delay(1000);
+
+  updateLEDs();
+  showCurrentFloor();
+}
+
+void loop() {
+  readButtons();
+
+  switch(currentState){
+    case IDLE: break;
+    case MOVE_UP: handleMovement(1); break;
+    case MOVE_DOWN: handleMovement(-1); break;
+    case DOOR_OPENING: handleDoorOpening(); break;
+    case DOOR_CLOSING: handleDoorClosing(); break;
+  }
+}
+
+void readButtons(){
+  for(int i=0;i<4;i++){
+    if(digitalRead(buttonPins[i]) == LOW){
+      if(millis() - lastButtonTime[i] < debounceDelay) continue;
+      lastButtonTime[i] = millis();
+
+      targetFloor = i + 1;
+
+      if(targetFloor > currentFloor)
+        currentState = MOVE_UP;
+      else if(targetFloor < currentFloor)
+        currentState = MOVE_DOWN;
+      else{
+        doorPos = 10;
+        currentState = DOOR_OPENING;
+        lastDoorTime = millis();
+      }
+    }
+  }
+}
+
+void handleMovement(int direction){
+  if(millis() - lastMoveTime < moveInterval) return;
+  lastMoveTime = millis();
+
+  currentFloor += direction;
+
+  updateLEDs();  
+
+  lcd.clear();
+  lcd.setCursor(0,0);
+  lcd.print(direction > 0 ? "Moving Up" : "Moving Down");
+  lcd.setCursor(0,1);
+  lcd.print("Floor ");
+  lcd.print(currentFloor);
+
+  if(currentFloor == targetFloor){
+    doorPos = 10;
+    currentState = DOOR_OPENING;
+    lastDoorTime = millis();
+  }
+}
+
+void handleDoorOpening(){
+  if(millis() - lastDoorTime < doorInterval) return;
+  lastDoorTime = millis();
+
+  lcd.clear();
+  lcd.setCursor(0,0);
+  lcd.print("Door Opening");
+
+  digitalWrite(buzzPin, HIGH);
+
+  if(doorPos > 0){
+    doorPos--;
+  } else {
+    digitalWrite(buzzPin, LOW);
+    currentState = DOOR_CLOSING;
+  }
+}
+
+void handleDoorClosing(){
+  if(millis() - lastDoorTime < doorInterval) return;
+  lastDoorTime = millis();
+
+  lcd.clear();
+  lcd.setCursor(0,0);
+  lcd.print("Door Closing");
+
+  if(doorPos < 10){
+    doorPos++;
+  } else {
+    currentState = IDLE;
+    showCurrentFloor();
+  }
+}
+
+void updateLEDs(){
+  for(int i=0;i<4;i++){
+    if(currentFloor == (i+1))
+      digitalWrite(ledPins[i], HIGH);
+    else
+      digitalWrite(ledPins[i], LOW);
+  }
+}
+
+void showCurrentFloor(){
+  lcd.clear();
+  lcd.setCursor(0,0);
+  lcd.print("Current Floor:");
+  lcd.setCursor(0,1);
+  lcd.print(currentFloor);
+}
