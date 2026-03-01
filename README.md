@@ -8,3 +8,5 @@ The elevator control system built here is a single elevator control system with 
 
 3.When a button is pressed after another button is pressed the lift will stop if the floor is in-between the current floor and destination, if not it will be stored and once the destination is reached the lift would then go back to the floor where the button was pressed later. There is a time limit to press the button that is while passing from one floor to another if a button is pressed in-between floor and has already passed that time limit then the input is stored rather than stopping in between.
 <img width="1246" height="685" alt="Screenshot 2026-03-01 at 7 46 33 PM" src="https://github.com/user-attachments/assets/581a53c9-ab89-40bc-9413-ed6a9b95db20" />
+this is my virtual simulation in wokwi.com
+https://wokwi.com/projects/457306376605768705
